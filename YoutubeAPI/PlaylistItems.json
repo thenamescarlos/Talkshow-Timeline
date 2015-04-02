@@ -1,0 +1,216 @@
+﻿{
+ "kind": "youtube#playlistItemListResponse",
+ "etag": "\"9iWEWaGPvvCMMVNTPHF9GiusHJA/4Jjx1I8blIUm_sNLIQKmRz9ww6s\"",
+ "nextPageToken": "CAUQAA",
+ "pageInfo": {
+  "totalResults": 7,
+  "resultsPerPage": 5
+ },
+ "items": [
+  {
+
+   "kind": "youtube#playlistItem",
+   "etag": "\"9iWEWaGPvvCMMVNTPHF9GiusHJA/k9b-9vnGtIVCiplgw-vE3R0Lr2s\"",
+   "id": "PL1kwMOh16KslMc71qykOCORJE7QxJRDswriU9eTA24XE",
+   "snippet": {
+    "publishedAt": "2014-09-05T03:30:29.000Z",
+    "channelId": "UCFKzRzwT28NDxFfxuq1vEmQ",
+    "title": "Ron & Fez - Egyptian Candid Camera (Video)",
+    "description": "Ronnie B. & Pepper react to footage from an Egyptian prank show. 08-22-12\n\nAll rights belong to SiriusXM. I do not own any of the content in this video. Subscribe today @ www.siriusxm.com",
+    "thumbnails": {
+     "default": {
+      "url": "https://i.ytimg.com/vi/SktmAa0fewc/default.jpg",
+      "width": 120,
+      "height": 90
+     },
+     "medium": {
+      "url": "https://i.ytimg.com/vi/SktmAa0fewc/mqdefault.jpg",
+      "width": 320,
+      "height": 180
+     },
+     "high": {
+      "url": "https://i.ytimg.com/vi/SktmAa0fewc/hqdefault.jpg",
+      "width": 480,
+      "height": 360
+     },
+     "standard": {
+      "url": "https://i.ytimg.com/vi/SktmAa0fewc/sddefault.jpg",
+      "width": 640,
+      "height": 480
+     },
+     "maxres": {
+      "url": "https://i.ytimg.com/vi/SktmAa0fewc/maxresdefault.jpg",
+      "width": 1280,
+      "height": 720
+     }
+    },
+    "channelTitle": "Disco Dog",
+    "playlistId": "PLXLxzjFhY8chQnfhejj7wW8EC57cd7ZQm",
+    "position": 0,
+    "resourceId": {
+     "kind": "youtube#video",
+     "videoId": "SktmAa0fewc"
+    }
+   }
+  },
+  {
+
+   "kind": "youtube#playlistItem",
+   "etag": "\"9iWEWaGPvvCMMVNTPHF9GiusHJA/gMnzh7ztLeYVPRx7uFiAd2OBg3E\"",
+   "id": "PL1kwMOh16KslMc71qykOCOYyCYCcm0cwBRNsOuaNcEpw",
+   "snippet": {
+    "publishedAt": "2014-09-08T02:14:10.000Z",
+    "channelId": "UCFKzRzwT28NDxFfxuq1vEmQ",
+    "title": "Ron & Fez - Great White Slide: The Musical (Video)",
+    "description": "The Buddays review bizarre footage from an Austin, TX backyard metal band. 12/20/12\n\nAll rights belong to SiriusXM. I do not own any of the content in this video. Subscribe today @ www.siriusxm.com",
+    "thumbnails": {
+     "default": {
+      "url": "https://i.ytimg.com/vi/Aj1RLEllPOo/default.jpg",
+      "width": 120,
+      "height": 90
+     },
+     "medium": {
+      "url": "https://i.ytimg.com/vi/Aj1RLEllPOo/mqdefault.jpg",
+      "width": 320,
+      "height": 180
+     },
+     "high": {
+      "url": "https://i.ytimg.com/vi/Aj1RLEllPOo/hqdefault.jpg",
+      "width": 480,
+      "height": 360
+     },
+     "standard": {
+      "url": "https://i.ytimg.com/vi/Aj1RLEllPOo/sddefault.jpg",
+      "width": 640,
+      "height": 480
+     },
+     "maxres": {
+      "url": "https://i.ytimg.com/vi/Aj1RLEllPOo/maxresdefault.jpg",
+      "width": 1280,
+      "height": 720
+     }
+    },
+    "channelTitle": "Disco Dog",
+    "playlistId": "PLXLxzjFhY8chQnfhejj7wW8EC57cd7ZQm",
+    "position": 1,
+    "resourceId": {
+     "kind": "youtube#video",
+     "videoId": "Aj1RLEllPOo"
+    }
+   }
+  },
+  {
+
+   "kind": "youtube#playlistItem",
+   "etag": "\"9iWEWaGPvvCMMVNTPHF9GiusHJA/9IgGss9Lvw0wHbpOtEYhkRIBip8\"",
+   "id": "PL1kwMOh16KslMc71qykOCOZL6vJyEj_FIAtSSsXVirVc",
+   "snippet": {
+    "publishedAt": "2014-10-28T03:16:16.000Z",
+    "channelId": "UCFKzRzwT28NDxFfxuq1vEmQ",
+    "title": "Ron & Fez - The \"Rock Of Ages\" Delusion (Video)",
+    "description": "The Buddays review a trailer for the disastrous feature-length film version of \"Rock Of Ages\". 12/15/11\n\nAll rights belong to SiriusXM. I do not own any of the content in this video. Subscribe today @ www.siriusxm.com",
+    "thumbnails": {
+     "default": {
+      "url": "https://i.ytimg.com/vi/Rzd5yjv2uzU/default.jpg",
+      "width": 120,
+      "height": 90
+     },
+     "medium": {
+      "url": "https://i.ytimg.com/vi/Rzd5yjv2uzU/mqdefault.jpg",
+      "width": 320,
+      "height": 180
+     },
+     "high": {
+      "url": "https://i.ytimg.com/vi/Rzd5yjv2uzU/hqdefault.jpg",
+      "width": 480,
+      "height": 360
+     },
+     "standard": {
+      "url": "https://i.ytimg.com/vi/Rzd5yjv2uzU/sddefault.jpg",
+      "width": 640,
+      "height": 480
+     }
+    },
+    "channelTitle": "Disco Dog",
+    "playlistId": "PLXLxzjFhY8chQnfhejj7wW8EC57cd7ZQm",
+    "position": 2,
+    "resourceId": {
+     "kind": "youtube#video",
+     "videoId": "Rzd5yjv2uzU"
+    }
+   }
+  },
+  {
+
+   "kind": "youtube#playlistItem",
+   "etag": "\"9iWEWaGPvvCMMVNTPHF9GiusHJA/U3D6T1Efv0bFaW2t0Q8W5Cnh830\"",
+   "id": "PL1kwMOh16KslMc71qykOCORAV98fAo3B9wC67y7e1F4A",
+   "snippet": {
+    "publishedAt": "2014-11-08T02:37:53.000Z",
+    "channelId": "UCFKzRzwT28NDxFfxuq1vEmQ",
+    "title": "Ron & Fez - The 'Good Day Mr. Kubrick' Audition Tape (Video)",
+    "description": "The Buddays & callers become enthralled with a resurfaced audition reel from breakout '80s film star, Brian Atene. 10/31/06\n\nAll rights belong to SiriusXM. I do not own any of the content in this video. Subscribe today @ www.siriusxm.com",
+    "thumbnails": {
+     "default": {
+      "url": "https://i.ytimg.com/vi/HNOb2lHuTUw/default.jpg",
+      "width": 120,
+      "height": 90
+     },
+     "medium": {
+      "url": "https://i.ytimg.com/vi/HNOb2lHuTUw/mqdefault.jpg",
+      "width": 320,
+      "height": 180
+     },
+     "high": {
+      "url": "https://i.ytimg.com/vi/HNOb2lHuTUw/hqdefault.jpg",
+      "width": 480,
+      "height": 360
+     }
+    },
+    "channelTitle": "Disco Dog",
+    "playlistId": "PLXLxzjFhY8chQnfhejj7wW8EC57cd7ZQm",
+    "position": 3,
+    "resourceId": {
+     "kind": "youtube#video",
+     "videoId": "HNOb2lHuTUw"
+    }
+   }
+  },
+  {
+
+   "kind": "youtube#playlistItem",
+   "etag": "\"9iWEWaGPvvCMMVNTPHF9GiusHJA/5I3SUKb3Ym4N0CoUJoQ762cvm50\"",
+   "id": "PL1kwMOh16KslMc71qykOCOS0qRPkeY5Hym4MEFLQtIgc",
+   "snippet": {
+    "publishedAt": "2014-11-08T02:38:08.000Z",
+    "channelId": "UCFKzRzwT28NDxFfxuq1vEmQ",
+    "title": "Ron & Fez - Dave's \"Worst Wedding Guest\" Stunt (Video)",
+    "description": "East Side Dave attempts a belligerent viral video moment at O&A producer E-Rock's wedding reception. 11/23/10\n\nAll rights belong to SiriusXM. I do not own any of the content in this video. Subscribe today @ www.siriusxm.com",
+    "thumbnails": {
+     "default": {
+      "url": "https://i.ytimg.com/vi/Ii_3-NwmMn0/default.jpg",
+      "width": 120,
+      "height": 90
+     },
+     "medium": {
+      "url": "https://i.ytimg.com/vi/Ii_3-NwmMn0/mqdefault.jpg",
+      "width": 320,
+      "height": 180
+     },
+     "high": {
+      "url": "https://i.ytimg.com/vi/Ii_3-NwmMn0/hqdefault.jpg",
+      "width": 480,
+      "height": 360
+     }
+    },
+    "channelTitle": "Disco Dog",
+    "playlistId": "PLXLxzjFhY8chQnfhejj7wW8EC57cd7ZQm",
+    "position": 4,
+    "resourceId": {
+     "kind": "youtube#video",
+     "videoId": "Ii_3-NwmMn0"
+    }
+   }
+  }
+ ]
+}
