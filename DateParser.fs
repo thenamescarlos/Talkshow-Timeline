@@ -1,81 +1,139 @@
-﻿module Youtube.DateParser
+module Youtube.DateParser
 open System
 open System.Text.RegularExpressions
 
-type DateDM = {Month:int;Day:int}
-type DateDMY = {Month:int;Day:int;Year:int}
+type ParsedMD = {Month:int;Day:int}
+
+type Date =
+    | Day of DateTime
+    | DateRange of DateTime * DateTime 
+
+type IncompleteDate = 
+    | IncompleteDay of ParsedMD
+    | IncompleteRange of ParsedMD * ParsedMD
+
 type DateParseToken =
-    | Partial of DateDM
-    | Full of DateDMY
- 
+    | Truncated of ParsedMD
+    | Complete of DateTime
+    | RangeSeperator
+
+type DateToken = //Subset
+    | T of ParsedMD
+    | C of DateTime
+
+type DateExpansionState = {PreviousDate : DateToken option; IsRangeEnd : bool; Incompletes : IncompleteDate list; Dates : Date list }
+
+let t m d = Truncated({Month=m;Day=d})
+let c m d y = Complete(DateTime(y,m,d)) 
+
+let inferyearof (date : DateTime) truncated =
+    let applyyear incomplete = 
+        let year = if incomplete.Month > date.Month then date.Year - 1 else date.Year
+        DateTime(year,incomplete.Month,incomplete.Day)
+    match truncated with
+    | IncompleteDay incomplete -> Day(applyyear incomplete)
+    | IncompleteRange(start , endof) -> DateRange(applyyear start, applyyear endof)
+
+//TODO: Delete redundant like 3-14-2014 , 3-14-2014 - 3-18-2014
+let expand infer datetokens =
+    let fold (state : DateExpansionState) token =
+       match token with
+       | Truncated next -> 
+            {state with 
+                PreviousDate = Some(T next)
+                IsRangeEnd = false
+                Incompletes = 
+                    match state.IsRangeEnd with
+                    | false -> IncompleteDay(next) :: state.Incompletes
+                    | true -> 
+                        match state.PreviousDate with
+                        | None -> IncompleteDay(next) :: state.Incompletes
+                        | Some p ->
+                            match p with
+                            | T previous -> IncompleteRange(previous,next) :: state.Incompletes
+                            | C c ->  IncompleteDay(next) :: state.Incompletes //Ignore m-d-y - m-d
+            }
+       | Complete next -> 
+            {state with 
+                PreviousDate = Some(C next )
+                IsRangeEnd = false
+                Incompletes = []
+                Dates =
+                    let parsedincompletes = List.rev (List.map (infer next) state.Incompletes)
+                    let previousparsed = state.Dates 
+                    let last = 
+                        match state.IsRangeEnd with
+                        | false -> [Day next]
+                        | true -> 
+                            match state.PreviousDate with
+                            | None -> [Day next]
+                            | Some previous -> 
+                                match previous with
+                                | T t -> 
+                                    match infer next (IncompleteDay t) with
+                                    | Day startdate -> [DateRange(startdate,next)]
+                                    | DateRange _ -> [Day next] //shouldn't happen
+                                | C startdate -> [DateRange(startdate,next)] 
+                    previousparsed @ parsedincompletes @ last
+            }
+       | RangeSeperator ->
+           match state.PreviousDate with
+           | None -> state
+           | Some p -> {state with IsRangeEnd = true}
+    Seq.fold fold {PreviousDate = None; IsRangeEnd = false; Incompletes = []; Dates = []} datetokens
+
+let test datetokens = 
+    expand inferyearof datetokens 
+    |> fun finishedstate -> finishedstate.Dates
+    |> Seq.map(function  Day date -> date.ToShortDateString() | DateRange(date1,date2) -> sprintf "%s - %s" (date1.ToShortDateString()) (date2.ToShortDateString()))
+    |> Seq.iter(printf "%s ")
+
 //If a partial date like 3-22 is followed by a date like 4-02-2015 then it is implied to be the same year.
 //If a partial date like 3-22 is followed by a date like 2-04-2015 then is is implied to be the year before
-let inferyearof fulldate (partialdate: DateDM) =
-    let year = if partialdate.Month > fulldate.Month then fulldate.Year - 1 else fulldate.Year
-    {Month=partialdate.Month;Day=partialdate.Day;Year=year}
- 
-let inferyearsof fulldate = List.map(inferyearof fulldate)
+//Regex Helpers
+let regex pattern input = Regex.Match(input,pattern)
+let regexallmatches pattern input = Regex.Matches(pattern,input) |> Seq.cast |> Seq.map(fun (m:Match) -> m) 
+let matchedgroup (group: GroupCollection) (index:int) =  group.[index].Value //remember 0 shows the whole value
+let withregexmatch (regex : string -> Match) onmatch = regex >> function m when m.Success -> Some(onmatch m) | _ -> None
+let withregexmatchgroups regex f = withregexmatch regex (fun matches -> f (matches.Groups))
+//Tokenization
+let split (text:string) = text.Split()
+let easytoken = 
+    String.map(Char.ToLower) >> function //Easy to parse int
+    | "january" | "jan" -> "1" 
+    | "february" | "febuary"| "feb" -> "2"
+    | "march" | "mar" -> "3"
+    | "april" | "apr" -> "4"
+    | "may" | "may" -> "5"
+    | "june" | "jun" -> "6"
+    | "july" | "jul" -> "7"
+    | "august" | "aug" -> "8"
+    | "september" | "sep" | "sept" -> "9"
+    | "october" | "oct" -> "10"
+    | "november" | "nov" -> "11"
+    | "december" | "dec" -> "12"
+    | "through" | "to" -> "-"
+    | etc -> etc
+let removepunctuation input = Regex.Replace(input,"[;,.\(\)]","")
+let sanitize = removepunctuation >> split >> Seq.map(monthname) >> String.concat " "
 
-//Regex and Tokenizing
 let month = "(1[0-2]|0{0,1}[1-9])" //Should only match range of [0]1-9 or 10-12
 let seperator = "([-/])" //TODO group
 let day = "(3[0-2]|[12][0-9]|0{0,1}[1-9])" //Should only match range [0]1-9 or 10-32
 let year = "(\d{2}|\d{4})" //don't care what they put for year, it must be valid if everythign else follows
-
-let regex pattern input = Regex.Match(input,pattern)
 let regexmd = regex (sprintf "^\({0,1}%s%s%s\){0,1},{0,1}$" month seperator day)
 let regexmdy = regex (sprintf "^\({0,1}%s%s%s%s%s\){0,1},{0,1}$" month seperator day seperator year)
-let matchmd date = 
-    let matchresult = regexmd date
-    match matchresult.Success with
-    | true -> 
-        let month = (int) matchresult.Groups.[1].Value
-        let day = (int) matchresult.Groups.[3].Value
-        Some (Partial({Month=month;Day=day}))
-    | false -> None
-let matchmdy date = 
-    let matchresult = regexmdy date
-    match matchresult.Success with
-    | true -> 
-        let month = (int) matchresult.Groups.[1].Value
-        let day = (int) matchresult.Groups.[3].Value
-        let year = (int) matchresult.Groups.[5].Value
-        Some (Full({Month=month;Day=day;Year=year}))
-    | false -> None
-
-
+let mdytoken = withregexmatchgroups regexmd (matchedgroup >> fun g -> Full {Month = int(g 1); Day = int(g 3); Year= int(g 5)})
+let mdtoken = withregexmatchgroups regexmdy (matchedgroup >> fun g -> Partial {Month = int(g 1); Day = int(g 3)})
 let tokenizeuploadtext (uploadtext:string) =
-    let matchof input = match matchmdy input with Some(_) as mdy -> mdy | None -> match matchmd input with Some(_) as md -> md | None -> None
+    let rec matchof tokenizers input = 
+        match tokenizers with
+        | [] -> None 
+        | tokenizer::others -> 
+            match tokenizer input with 
+            | Some(_) as token -> token
+            | None -> matchof others input
     uploadtext.Replace(".","").Replace(";","").Split() //TODO Temp - Should probably remove all punctuation characters or use Matches
-    |> Seq.map(matchof) 
+    |> Seq.map(matchof [mdytoken;mdtoken]) 
     |> Seq.fold(fun tokens result -> match result with None -> tokens | Some(token) -> token :: tokens) []
     |> List.rev
-
-let inferfulldates inferfulldates datetokens =
-    let rec f partialdates fulldates tokens =
-        match tokens with
-        | [] -> fulldates
-        | h::t ->
-            match h with
-            | Partial(partialdate) -> f (partialdate :: partialdates) fulldates t
-            | Full(fulldate)-> f [] (fulldates @ (List.rev (inferfulldates fulldate partialdates)) @ [fulldate]) t
-    f [] [] datetokens
-
-let rfshowdates = tokenizeuploadtext >> inferfulldates inferyearsof
-let a =
-    "The Buddays record two weeks worth of live-to-tape segments on the eve of SXM's Christmas party; imbibed producer Chris Stanley rises to the occasion. LINK: http://youtu.be/7u4yFbYGZTU 12/22, 12/23, 12/24, 12/25, 12/26, 12/29, 12/30; 01/05/15."
-let b =
-    """Grandma Fez introduces the Buddays to his dissociated alter-ego "Inner Voice", after suffering an escalator fall; Ronnie B. calls shenanigans on his co-host's nuanced performance; Pepper's liquor stash gets looted. 12/15, 12/16, 12/17/10"""
-let c =
-    """Back in early 2007, a masked producer showed up to replace East Side Dave. This is that story (well, part 1 of 4 since there’s an 11 hour limit on YouTube uploads) Click 'show more' for the chapter list and timecodes. 
-
-Chapter 1-8
-
-00:00:00 - 01-12 - Dave Gets Voted Off
-01:51:04 - 01-16 - Dave Steps Down
-02:43:55 - 01-17-2007 - A Masked Man Appears
-04:17:23 - 01-18-2007 - Pre Hypnotist Show
-04:53:25 - 01-19-2007 - Hypnotist Show
-07:25:21 - 01-22-2007 - Post Hypnotist Show/Earl Can’t Sleep
-09:01:31 - 01-23-2007 - Purity Balls
-09:28:53 - 01-24-2007 - Earl vs Rider"""
