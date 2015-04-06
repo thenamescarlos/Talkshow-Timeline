@@ -93,17 +93,34 @@ let test datetokens =
     |> todatetimes
     |> Seq.iter(printfn "%A")
 
-//If a partial date like 3-22 is followed by a date like 4-02-2015 then it is implied to be the same year.
-//If a partial date like 3-22 is followed by a date like 2-04-2015 then is is implied to be the year before
 //Regex Helpers
 let regex pattern input = Regex.Match(input,pattern)
 let regexallmatches pattern input = Regex.Matches(pattern,input) |> Seq.cast |> Seq.map(fun (m:Match) -> m) 
 let matchedgroup (group: GroupCollection) (index:int) =  group.[index].Value //remember 0 shows the whole value
 let withregexmatch (regex : string -> Match) onmatch = regex >> function m when m.Success -> Some(onmatch m) | _ -> None
-let withregexmatchgroups regex f = withregexmatch regex (fun matches -> f (matches.Groups))
+let withregexmatchgroups regex f = withregexmatch regex (fun matchresult -> f (matchresult.Groups))
+
 //Tokenization
+let month = "(1[0-2]|0{0,1}[1-9])" //Should only match range of [0]1-9 or 10-12
+let seperator = "([-/])"
+let rangeseperator = "\s*\({0,1}(-)\s*\){0,1}"
+let day = "(3[0-2]|[12][0-9]|0{0,1}[1-9])" //Should only match range [0]1-9 or 10-32
+let year = "(\d{2}|\d{4})" //don't care what they put for year, it must be valid if everythign else follows
+
+let regexmd = regex (sprintf "^\({0,1}%s%s%s\){0,1},{0,1}$" month seperator day)
+let regexmdy = regex (sprintf "^\({0,1}%s%s%s%s%s\){0,1},{0,1}$" month seperator day seperator year)
+let regexsep = regex rangeseperator
+let mdytoken = 
+    withregexmatchgroups regexmdy (
+        matchedgroup >> fun g -> //Fix throws exception on edge cases like 2/31/_
+            Complete (DateTime.Parse(sprintf "%s-%s-%s" (g 1) (g 3) (g 5))) 
+    )
+let mdtoken = withregexmatchgroups regexmd (matchedgroup >> fun g -> Truncated({Month = int(g 1); Day = int(g 3)}) )
+let septoken = regexsep >> fun matchof -> if matchof.Success then Some RangeSeperator else None //Fix high order functions
+
+//Sanitize
 let split (text:string) = text.Split()
-let easytoken = 
+let monthname = 
     String.map(Char.ToLower) >> function //Easy to parse int
     | "january" | "jan" -> "1" 
     | "february" | "febuary"| "feb" -> "2"
@@ -122,14 +139,6 @@ let easytoken =
 let removepunctuation input = Regex.Replace(input,"[;,.\(\)]","")
 let sanitize = removepunctuation >> split >> Seq.map(monthname) >> String.concat " "
 
-let month = "(1[0-2]|0{0,1}[1-9])" //Should only match range of [0]1-9 or 10-12
-let seperator = "([-/])" //TODO group
-let day = "(3[0-2]|[12][0-9]|0{0,1}[1-9])" //Should only match range [0]1-9 or 10-32
-let year = "(\d{2}|\d{4})" //don't care what they put for year, it must be valid if everythign else follows
-let regexmd = regex (sprintf "^\({0,1}%s%s%s\){0,1},{0,1}$" month seperator day)
-let regexmdy = regex (sprintf "^\({0,1}%s%s%s%s%s\){0,1},{0,1}$" month seperator day seperator year)
-let mdytoken = withregexmatchgroups regexmd (matchedgroup >> fun g -> Full {Month = int(g 1); Day = int(g 3); Year= int(g 5)})
-let mdtoken = withregexmatchgroups regexmdy (matchedgroup >> fun g -> Partial {Month = int(g 1); Day = int(g 3)})
 let tokenizeuploadtext (uploadtext:string) =
     let rec matchof tokenizers input = 
         match tokenizers with
@@ -138,7 +147,9 @@ let tokenizeuploadtext (uploadtext:string) =
             match tokenizer input with 
             | Some(_) as token -> token
             | None -> matchof others input
-    uploadtext.Replace(".","").Replace(";","").Split() //TODO Temp - Should probably remove all punctuation characters or use Matches
-    |> Seq.map(matchof [mdytoken;mdtoken]) 
+    uploadtext //TODO Temp - Should probably remove all punctuation characters or use Matches
+    |> sanitize
+    |> split
+    |> Seq.map(matchof [mdytoken;mdtoken;septoken]) 
     |> Seq.fold(fun tokens result -> match result with None -> tokens | Some(token) -> token :: tokens) []
     |> List.rev
