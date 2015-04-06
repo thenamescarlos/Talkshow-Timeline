@@ -1,30 +1,23 @@
 module Youtube.DateParser
+
 open System
 open System.Text.RegularExpressions
 
-type ParsedMD = {Month:int;Day:int}
+type Date = Day of DateTime | DateRange of DateTime * DateTime 
 
-type Date =
-    | Day of DateTime
-    | DateRange of DateTime * DateTime 
+//For dates parsed as 3-22 or 03/22 etc.
+type TruncatedDate = {Month:int;Day:int}
 
-type IncompleteDate = 
-    | IncompleteDay of ParsedMD
-    | IncompleteRange of ParsedMD * ParsedMD
+//Holds incomplete dates because e.g. a range of 2/27 - 3/1 is impossible to get inbetween dates on account of leap years.
+type IncompleteDate = IncompleteDay of TruncatedDate | IncompleteRange of TruncatedDate * TruncatedDate
 
-type DateParseToken =
-    | Truncated of ParsedMD
-    | Complete of DateTime
-    | RangeSeperator
+//Possible tokens that can be regexed out to parse. e.g. 3-13 - 3-17-2015 -> list<Truncated;RangeSeperator;Complete>
+type DateParseToken = Truncated of TruncatedDate | Complete of DateTime | RangeSeperator
 
-type DateToken = //Subset
-    | T of ParsedMD
-    | C of DateTime
+//Subset of DateParseToken that might be able to be refactored out
+type DateToken = T of TruncatedDate | C of DateTime
 
 type DateExpansionState = {PreviousDate : DateToken option; IsRangeEnd : bool; Incompletes : IncompleteDate list; Dates : Date list }
-
-let t m d = Truncated({Month=m;Day=d})
-let c m d y = Complete(DateTime(y,m,d)) 
 
 let inferyearof (date : DateTime) truncated =
     let applyyear incomplete = 
@@ -34,46 +27,56 @@ let inferyearof (date : DateTime) truncated =
     | IncompleteDay incomplete -> Day(applyyear incomplete)
     | IncompleteRange(start , endof) -> DateRange(applyyear start, applyyear endof)
 
-//TODO: Delete redundant like 3-14-2014 , 3-14-2014 - 3-18-2014
-let expand infer datetokens =
+let todatetimes parseresult =
+    let datesbetween start endof =
+        let rec generate dates (current : DateTime) =
+            match current = endof , current.AddDays(1.0) = endof with
+            | true , _ -> dates
+            | false, true -> dates
+            | _, _ -> current.AddDays(1.0) |> fun newdate ->  generate (newdate :: dates) newdate
+        if start >= endof then [] else generate [] start |> List.rev     
+    parseresult.Dates 
+    |> List.collect(function | Day date -> [date] | DateRange(start,endof) -> [start] @ (datesbetween start endof) @ [endof])
+    |> Set.ofList
+    |> Set.toList
+
+//Optional TODO: Delete redundant like 3-14-2014 , 3-14-2014 - 3-18-2014 in one pass
+let tofulldates infer datetokens =
     let fold (state : DateExpansionState) token =
+       let nextstate datetoken = {state with IsRangeEnd = false; PreviousDate = Some(datetoken)}
        match token with
-       | Truncated next -> 
-            {state with 
-                PreviousDate = Some(T next)
-                IsRangeEnd = false
+       | Truncated current -> 
+            { nextstate (T current) with 
                 Incompletes = 
                     match state.IsRangeEnd with
-                    | false -> IncompleteDay(next) :: state.Incompletes
+                    | false -> IncompleteDay(current) :: state.Incompletes
                     | true -> 
                         match state.PreviousDate with
-                        | None -> IncompleteDay(next) :: state.Incompletes
+                        | None -> IncompleteDay(current) :: state.Incompletes
                         | Some p ->
                             match p with
-                            | T previous -> IncompleteRange(previous,next) :: state.Incompletes
-                            | C c ->  IncompleteDay(next) :: state.Incompletes //Ignore m-d-y - m-d
+                            | T previous -> IncompleteRange(previous,current) :: state.Incompletes
+                            | C c ->  IncompleteDay(current) :: state.Incompletes //Ignore m-d-y - m-d
             }
-       | Complete next -> 
-            {state with 
-                PreviousDate = Some(C next )
-                IsRangeEnd = false
+       | Complete current -> 
+            {nextstate (C current) with 
                 Incompletes = []
                 Dates =
-                    let parsedincompletes = List.rev (List.map (infer next) state.Incompletes)
+                    let parsedincompletes = List.rev (List.map (infer current) state.Incompletes)
                     let previousparsed = state.Dates 
                     let last = 
                         match state.IsRangeEnd with
-                        | false -> [Day next]
+                        | false -> [Day current]
                         | true -> 
                             match state.PreviousDate with
-                            | None -> [Day next]
+                            | None -> [Day current]
                             | Some previous -> 
                                 match previous with
                                 | T t -> 
-                                    match infer next (IncompleteDay t) with
-                                    | Day startdate -> [DateRange(startdate,next)]
-                                    | DateRange _ -> [Day next] //shouldn't happen
-                                | C startdate -> [DateRange(startdate,next)] 
+                                    match infer current (IncompleteDay t) with
+                                    | Day startdate -> [DateRange(startdate,current)]
+                                    | DateRange _ -> [Day current] //shouldn't happen
+                                | C startdate -> [DateRange(startdate,current)] 
                     previousparsed @ parsedincompletes @ last
             }
        | RangeSeperator ->
@@ -82,11 +85,13 @@ let expand infer datetokens =
            | Some p -> {state with IsRangeEnd = true}
     Seq.fold fold {PreviousDate = None; IsRangeEnd = false; Incompletes = []; Dates = []} datetokens
 
+let t m d = Truncated({Month=m;Day=d})
+let c m d y = Complete(DateTime(y,m,d)) 
+
 let test datetokens = 
-    expand inferyearof datetokens 
-    |> fun finishedstate -> finishedstate.Dates
-    |> Seq.map(function  Day date -> date.ToShortDateString() | DateRange(date1,date2) -> sprintf "%s - %s" (date1.ToShortDateString()) (date2.ToShortDateString()))
-    |> Seq.iter(printf "%s ")
+    tofulldates inferyearof datetokens 
+    |> todatetimes
+    |> Seq.iter(printfn "%A")
 
 //If a partial date like 3-22 is followed by a date like 4-02-2015 then it is implied to be the same year.
 //If a partial date like 3-22 is followed by a date like 2-04-2015 then is is implied to be the year before
