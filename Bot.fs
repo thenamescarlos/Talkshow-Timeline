@@ -1,40 +1,39 @@
-﻿module Youtube.Formatting
+module RFTimeline.Bot
 
 open System
-open Youtube.API
-open Youtube.DateParser
+open System.Text.RegularExpressions
+open RFTimeline.YoutubeAPI
+open RFTimeline.DateTokenization
 
+type RFShowLink = {Title: string; Uploader: string; Airdate : DateTime list; Link:string}
 
-type RFClipDate =
-    | Day of DateTime
-    | DateRange of DateTime * DateTime
-
-type RFShowLink = {Title: string; Uploader: string; Airdate : string; Link:string}
-
-let daterange uploadtext = 
-    let todatetime dmy = DateTime.Parse(sprintf "%d-%d-%d" dmy.Month dmy.Day dmy.Year)
-    let dates = rfshowdates uploadtext
-    match List.length dates with
-    | 0 -> None
-    | 1 -> Some( Day (todatetime (List.head dates) ))
-    | l -> Some( DateRange(todatetime (List.head dates) , todatetime(Seq.last dates)))
-
-let torfshowlink videoinfo =
-    let goodinfo = videoinfo.Info.Snippet
-    let title = goodinfo.Title
+let torfshowlink (videoinfo : VideoInfo) =
+    let goodinfo = videoinfo.Snippet
+    let title = goodinfo.Title 
     let uploader = goodinfo.ChannelTitle
-    let airdate =
-        match goodinfo.Description |> daterange with
-        | None -> "?"
-        | Some date -> 
-            match date with
-            | Day day -> day.ToShortDateString()
-            | DateRange(startof,endof) -> sprintf "%s to %s" (startof.ToShortDateString()) (endof.ToShortDateString())
+    let airdatefromdescription = goodinfo.Description |> scrapedates
+    let airdatefromtitle = goodinfo.Title |> scrapedates
     let link = ""
+
+    let airdate = 
+        match airdatefromdescription, airdatefromtitle with
+        | [] , titledates -> titledates
+        | descriptiondates, _ -> descriptiondates
+
     {Title=title;Uploader=uploader;Airdate=airdate;Link=link}
 
+let trimtitle rfshowlink = 
+    rfshowlink.Title 
+    |> fun title ->  Regex.Replace(title,"^(Classic){0,1}\s{0,1}Ron (&|and) Fez:{0,1}\s{0,1}-{0,1}\s+","")
+    |> fun newtitle -> {rfshowlink with Title=newtitle}
+
 //General Format Helpers 
-let tocolumns link = [link.Title ; link.Uploader ; link.Airdate ; link.Link]
+let tocolumns link = 
+    let airdates = 
+        match link.Airdate with
+        | [] -> "?"
+        | some -> some |> List.map(fun date -> date.ToShortDateString()) |> String.concat ", "
+    [link.Title ; link.Uploader ; (airdates) ; link.Link]
 
 let toreddittab videos =
     let torow = String.concat "    "
@@ -49,10 +48,10 @@ let writefile contents = IO.File.WriteAllText("/Users/sbhsadmin/Desktop/Result.t
 let scrapeyoutube showlinks =
     showlinks 
     |> totabdelimited 
-    |> String.concat (Environment.NewLine + Environment.NewLine) 
+    |> String.concat (Environment.NewLine) 
     |> writefile
 
 let program() =
-    getalluploadedvideos knownchannels 
-    |> Seq.map(torfshowlink)
+    videosfromall
+    |> Seq.map(torfshowlink >> trimtitle)
     |> scrapeyoutube
