@@ -1,13 +1,14 @@
-module RFTimeline.DateParser
+module RFTimeline.ConfigParser
 
 open System
 open System.IO
 open System.Text.RegularExpressions
 
+//TODO: Allow custom video id partition size
 type AppConfig = {APIKey : string; PlaylistIDs : string list} 
 
 let selectfirstmatchgroup regex line =
-    Regex.Match(line,regex) // The following throws an exception if there are no match groups defined.
+    Regex.Match(line,regex) // Theope following throws an exception if there are no match groups defined.
     |> fun result -> if result.Success then Some((result.Groups.Item 1).Value) else None
 
 let parseapikey line = selectfirstmatchgroup "^apikey: {0,1}(\S+)" line // Allow apikey:key or apikey: key ignore everything after
@@ -27,7 +28,8 @@ let parseconfig lines =
         
 let openconfig path =
     try
-        match parseconfig (File.ReadLines path) with //should dispose properly
+        let filelines = File.ReadAllLines(path) //File.ReadLines apparently closing and throwing exception with message that stream is closed
+        match parseconfig filelines with //should dispose properly
         | Some config -> Some config
         | None -> 
             do printfn "Error parsing config file at %s:" path
