@@ -1,23 +1,24 @@
-module RFTimeline.Bot
+#load "./DateParser.fsx"
+#load "./ConfigParser.fsx"
+#load "./YoutubeScraper.fsx"
 
 open System
 open System.Text.RegularExpressions
 open RFTimeline.YoutubeScraper
 open RFTimeline.DateParser
+open RFTimeline.ConfigParser
 
 type RFTimelineEntry = 
-    {
-        Airdate : DateTime list;
-        Link: string //Parsed link
-        DurationSeconds: int //Parsed ISO time
-        BaseInfo : VideoInformation;
-    }
+    { Airdate : DateTime list; //Parsed dates from description or title
+      Link: string //Parsed link
+      DurationSeconds: int //Parsed ISO time
+      BaseInfo : FilteredVideoRequest }
 
 let totimelineentry videoinfo =
-    let link = sprintf "https://www.youtube.com/watch?v=%s" videoinfo.FromPlaylistItem.Description
+    let link = sprintf "https://www.youtube.com/watch?v=%s" videoinfo.VideoID
     let airdate = 
-        let airdatefromtitle = scrapedates (videoinfo.FromPlaylistItem.Title)
-        let airdatefromdescription = scrapedates (videoinfo.FromPlaylistItem.Description)
+        let airdatefromtitle = scrapedates (videoinfo.Title)
+        let airdatefromdescription = scrapedates (videoinfo.Description)
         match airdatefromdescription, airdatefromtitle with
         | [] , titledates -> titledates
         | descriptiondates, _ -> descriptiondates
@@ -38,12 +39,10 @@ let totimelineentry videoinfo =
         | None, None, Some s -> s
         | _ -> 0 //Shouldn't happen
 
-    { 
-        Airdate=airdate
-        Link=link
-        DurationSeconds = duration videoinfo.FromVideo.ISODuration
-        BaseInfo = videoinfo
-    }
+    { Airdate=airdate
+      Link=link
+      DurationSeconds = duration videoinfo.ISODuration       
+      BaseInfo = videoinfo }
 
 //For Output
 let trimtitle title = 
@@ -56,7 +55,7 @@ let timetext seconds =
         let minuteremainder = minutes - (hours * 60)
         sprintf "%dh:%dm" hours minuteremainder
     | minutes when minutes > 0 ->
-        sprintf "%dm:%ds" minutes (seconds - (minutes * 60))
+        sprintf "%dm:%d" minutes (seconds - (minutes * 60))
     | seconds -> 
         sprintf "%ds" seconds
           
@@ -67,47 +66,45 @@ let airdates (sorteddatelist : DateTime list) =
 
 
 //General Format Helpers 
-//TODO: Better structure
-let header = ["Channel";"Title";"Length";"Likes";"Views";"Favorited";"Link";"Thumbnail";"Airdates";"Description"]
+//TODO: Better structure, includes descriptoins
+let header = ["Channel";"Title";"Length";"Likes";"Views";"Favorited";"Link";"Thumbnail";"Airdates"]
 let tocolumns entry = 
     [ 
-        entry.BaseInfo.FromPlaylistItem.Uploader
-        trimtitle entry.BaseInfo.FromPlaylistItem.Title
+        entry.BaseInfo.Uploader
+        trimtitle entry.BaseInfo.Title
         timetext entry.DurationSeconds
-        entry.BaseInfo.FromVideo.Likes |> string
-        entry.BaseInfo.FromVideo.Views |> string
-        entry.BaseInfo.FromVideo.Favorited |> string
+        entry.BaseInfo.Likes |> string
+        entry.BaseInfo.Views |> string
+        entry.BaseInfo.Favorited |> string
         entry.Link
-        entry.BaseInfo.FromPlaylistItem.ThumbnailLink
+        entry.BaseInfo.ThumbnailLink
         airdates entry.Airdate
-       //entry.BaseInfo.FromPlaylistItem.Description
+        //entry.BaseInfo.FromPlaylistItem.Description
     ]
 
 let toreddittab videos =
     let torow = String.concat "    "
-    videos |> Seq.map(tocolumns >> torow) |> Seq.append (torow header |> Seq.singleton)
+    videos |> Seq.map(tocolumns >> torow) |> Seq.append header
 
 let totabdelimited videos =
     let torow = String.concat "\t"
-    videos |> Seq.map(tocolumns >> torow) |> Seq.append (torow header |> Seq.singleton)
+    videos |> Seq.map(tocolumns >> torow) |> Seq.append header
 
 let writefile contents = IO.File.WriteAllText("/Users/sbhsadmin/Desktop/Result.txt",contents)
 
-let scrapeyoutube playlistids =
-    playlistids 
-    |> Seq.choose (videoinfo "AIzaSyDVR-g1L3iD1R7MEPhlPa1i8DsnmPP6Wdc")
-    |> Seq.collect(List.map totimelineentry)
-    |> totabdelimited
-    |> String.concat (Environment.NewLine)
-    |> writefile
+//remove duplicates like s1nber playlist
+let scrapeyoutube apikey playlistids =
+    playlistids |> 
+    Seq.map(processplaylist apikey 50) |>
+    Seq.choose id |> //Make sure that application closes on invalid id
+    Seq.collect id |>
+    Seq.map totimelineentry |>
+    totabdelimited |>
+    String.concat (Environment.NewLine) |>
+    writefile
 
-//demo
-scrapeyoutube 
-<| ["UUFKzRzwT28NDxFfxuq1vEmQ";
-"UU_JW3s3GEoNIc9bBUnrU8iw";
-"UUCiCH4bjwNnxKTy0KmdpXBQ";
-"UUYR-07tWRxv9pToHvBJ3JoA";
-"UUDcDSFLXLeC4zwxfsndzLcw";
-"UUUXBl9Kar4ty2WWR-EVy9OQ";
-"UUwTMLRqNN1wOMR8A8gyaLvA"]
-
+let application() =
+    let projectroot = IO.Path.GetDirectoryName(__SOURCE_DIRECTORY__) 
+    let configpath = IO.Path.Combine(projectroot,"config.txt")
+    openconfig configpath
+    |> Option.map(fun appconfig -> scrapeyoutube appconfig.APIKey appconfig.PlaylistIDs)
