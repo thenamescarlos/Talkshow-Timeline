@@ -1,3 +1,5 @@
+//Lots of quick and dirty, but not hard to clean up code.
+
 #load "./DateParser.fsx"
 #load "./ConfigParser.fsx"
 #load "./YoutubeScraper.fsx"
@@ -12,7 +14,10 @@ type RFTimelineEntry =
     { Airdate : DateTime list; //Parsed dates from description or title
       Link: string //Parsed link
       DurationSeconds: int //Parsed ISO time
+      SanitizedDescription: string
       BaseInfo : FilteredVideoRequest }
+
+
 
 let totimelineentry videoinfo =
     let link = sprintf "https://www.youtube.com/watch?v=%s" videoinfo.VideoID
@@ -34,13 +39,37 @@ let totimelineentry videoinfo =
         let minutes = numericvalue "M" isotext
         let hours = numericvalue "H" isotext
         match hours, minutes, seconds with
-        | Some h, Some m, Some s -> (h * 60 * 60) + (m * 60) + 2
+        | Some h, Some m, Some s -> (h * 60 * 60) + (m * 60) + s
         | None, Some m, Some s -> (m * 60) + s  
+        | Some h , None , None -> h * 60 * 60
+        | Some h , Some m , None -> (h * 60 * 60) + (m * 60)
+        | None, Some m, None -> m * 60
+        | Some h, None, Some s -> (h * 60 * 60)
         | None, None, Some s -> s
         | _ -> 0 //Shouldn't happen
+    let sanitizeddescription =
+        let description = videoinfo.Description 
+        Regex.Replace(description,"\r{0,1}\n","<br>") //hack way to eliminate newlines
+        |> fun linesremoved -> Regex.Replace(linesremoved,"\t","<t>") //remove tabs just in case
+    
+    //Essentially being used for disco dog's channel
+    let haslinkindescription title = 
+        Regex.IsMatch(title,"link in description",RegexOptions.IgnoreCase)
+         
+    // Used to see if a link is in the video.
+    let extractlink = 
+        withregexmatch (regex "http(s){0,1}:\/\/youtu\.be\/\S+") ( fun match' ->
+            Some match'.Value )
 
     { Airdate=airdate
-      Link=link
+      SanitizedDescription = sanitizeddescription
+      Link =
+        match haslinkindescription videoinfo.Title with
+        | true ->
+            match extractlink videoinfo.Description with
+            | Some extracted -> extracted
+            | None -> link
+        | false -> link        
       DurationSeconds = duration videoinfo.ISODuration       
       BaseInfo = videoinfo }
 
@@ -49,13 +78,14 @@ let trimtitle title =
     Regex.Replace(title,"^(Classic){0,1}\s{0,1}Ron (&|and) Fez:{0,1}\s{0,1}-{0,1}\s+","")
 
 let timetext seconds = 
-    match seconds / 60 with
-    | minutes when minutes > 60 ->
-        let hours = minutes / 60
-        let minuteremainder = minutes - (hours * 60)
+    match seconds with
+    | _ when seconds >= 3600 ->
+        let hours = seconds / 3600
+        let minuteremainder = (seconds - (hours * 3600)) / 60
         sprintf "%dh:%dm" hours minuteremainder
-    | minutes when minutes > 0 ->
-        sprintf "%dm:%d" minutes (seconds - (minutes * 60))
+    | _ when seconds > 60 ->
+        let minutes = seconds / 60
+        sprintf "%dm:%d" minutes (seconds % 60)
     | seconds -> 
         sprintf "%ds" seconds
           
@@ -67,7 +97,7 @@ let airdates (sorteddatelist : DateTime list) =
 
 //General Format Helpers 
 //TODO: Better structure, includes descriptoins
-let header = ["Channel";"Title";"Length";"Likes";"Views";"Favorited";"Link";"Thumbnail";"Airdates"]
+let header = ["Channel";"Title";"Length";"Likes";"Views";"Favorited";"Link";"Thumbnail";"Airdates";"Description"]
 let tocolumns entry = 
     [ 
         entry.BaseInfo.Uploader
@@ -79,7 +109,7 @@ let tocolumns entry =
         entry.Link
         entry.BaseInfo.ThumbnailLink
         airdates entry.Airdate
-        //entry.BaseInfo.FromPlaylistItem.Description
+        entry.SanitizedDescription
     ]
 
 let toreddittab videos =
@@ -88,7 +118,7 @@ let toreddittab videos =
 
 let totabdelimited videos =
     let torow = String.concat "\t"
-    videos |> Seq.map(tocolumns >> torow) |> Seq.append header
+    videos |> Seq.map(tocolumns >> torow) |> Seq.append (Seq.singleton (header |> torow))
 
 let writefile contents = IO.File.WriteAllText("/Users/sbhsadmin/Desktop/Result.txt",contents)
 
