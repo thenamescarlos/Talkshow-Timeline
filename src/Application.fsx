@@ -17,7 +17,7 @@ type RFTimelineEntry =
       SanitizedDescription: string
       BaseInfo : FilteredVideoRequest }
 
-
+//TODO: Seperate Request when link in description.
 
 let totimelineentry videoinfo =
     let link = sprintf "https://www.youtube.com/watch?v=%s" videoinfo.VideoID
@@ -120,21 +120,22 @@ let totabdelimited videos =
     let torow = String.concat "\t"
     videos |> Seq.map(tocolumns >> torow) |> Seq.append (Seq.singleton (header |> torow))
 
-let writefile contents = IO.File.WriteAllText("/Users/sbhsadmin/Desktop/Result.txt",contents)
+let writefile destination contents = IO.File.WriteAllText(destination,contents)
 
 //remove duplicates like s1nber playlist
-let scrapeyoutube apikey playlistids =
-    playlistids |> 
-    Seq.map(processplaylist apikey 50) |>
-    Seq.choose id |> //Make sure that application closes on invalid id
-    Seq.collect id |>
-    Seq.map totimelineentry |>
-    totabdelimited |>
-    String.concat (Environment.NewLine) |>
-    writefile
+let scrapeyoutube destination apikey playlistids =
+    playlistids
+    |> Seq.map(processplaylist apikey 50)
+    |> Seq.choose id
+    |> Seq.collect id //Make sure that application closes on invalid id
+    |> Seq.map totimelineentry
+    |> totabdelimited 
+    |> String.concat (Environment.NewLine) 
+    |> writefile destination
 
-let application() =
-    let projectroot = IO.Path.GetDirectoryName(__SOURCE_DIRECTORY__) 
-    let configpath = IO.Path.Combine(projectroot,"config.txt")
+let application outputdestination =
+    //Expects config file to be in the parent folder.
+    let projectroot = IO.Directory.GetParent(__SOURCE_DIRECTORY__).FullName
+    let configpath = IO.Path.Combine(projectroot,"config.json")
     openconfig configpath
-    |> Option.map(fun appconfig -> scrapeyoutube appconfig.APIKey appconfig.PlaylistIDs)
+    |> Option.map(fun appconfig -> scrapeyoutube outputdestination appconfig.APIKey appconfig.PlaylistIDs)
