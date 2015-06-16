@@ -11,12 +11,10 @@ type AppConfig =
     { APIKey : string
       PlaylistIDs : string list
       Filtered : string list
-      Ungrouped : string list } 
-
+      Ungrouped : string list }
 
 [<Literal>]
-let configformat = 
-    """
+let configformat = """
 {
   "apikey": "youtube api key",
   "playlists": [
@@ -34,18 +32,29 @@ let configformat =
 }
     """
 
-
 type ConfigParser = JsonProvider<configformat>
 
-let openconfig (path : string) =
-    try
+let openconfig (path : string) = 
+    try 
         let config = ConfigParser.Load(path)
         let apikey = config.Apikey
-        let playlists = List.ofArray (config.Playlists |> Array.map(fun c -> c.PlaylistId))
+        let playlists = List.ofArray (config.Playlists |> Array.map (fun c -> c.PlaylistId))
         let filtered = List.ofArray config.Filtered
         let ungrouped = List.ofArray config.Ungrouped
-        Some { APIKey = apikey; PlaylistIDs = playlists; Filtered = filtered; Ungrouped = ungrouped }
-    with
-    | ex ->
+
+        if String.IsNullOrWhiteSpace(apikey) then
+            do printfn "No APIKey in config file."
+            None
+        else
+            match ungrouped, playlists with
+            | [], [] -> 
+                do printfn "No video or playlists listed in config."
+                None
+            | _ -> 
+                Some { APIKey = apikey
+                       PlaylistIDs = playlists
+                       Filtered = filtered
+                       Ungrouped = ungrouped }
+    with ex -> 
         do printfn "Error opening config file at %s: %s" path ex.Message
         None
