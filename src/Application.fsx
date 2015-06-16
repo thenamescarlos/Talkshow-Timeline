@@ -123,7 +123,10 @@ let totabdelimited videos =
 let writefile destination contents = IO.File.WriteAllText(destination,contents)
 
 //remove duplicates like s1nber playlist
-let scrapeyoutube destination apikey playlistids =
+let scrapeyoutube destination (appconfig : AppConfig) =
+    let playlistids = appconfig.PlaylistIDs
+    let apikey = appconfig.APIKey
+
     playlistids
     |> Seq.map(processplaylist apikey 50)
     |> Seq.choose id
@@ -138,4 +141,4 @@ let application outputdestination =
     let projectroot = IO.Directory.GetParent(__SOURCE_DIRECTORY__).FullName
     let configpath = IO.Path.Combine(projectroot,"config.json")
     openconfig configpath
-    |> Option.map(fun appconfig -> scrapeyoutube outputdestination appconfig.APIKey appconfig.PlaylistIDs)
+    |> Option.map(fun appconfig -> scrapeyoutube outputdestination appconfig)
